@@ -1,0 +1,49 @@
+#!/bin/sh
+
+usage() {
+    echo Usage: `basename $0` '[-k keystorefile] [-p keystorepassword]' 
+    exit 1
+}
+
+KEYSTOREFILE=
+KEYSTOREPASSWD=
+
+SOAPSETTINGSTPL=$TOOLCHAIN/samples/soap/soapui-settings.tpl
+DEFAULTKEYSTORE=$TOOLCHAIN/samples/soap/HieKeyStore.jks
+WSISETTINGSLOC=$TOOLCHAIN/libs/SoapUI-5.2.0/wsi-test-tools
+HERMESJMSLOC=$TOOLCHAIN/libs/SoapUI-5.2.0/hermesJMS
+
+set -- `getopt "k:p:" "$@"` || usage
+
+while :
+do
+    case "$1" in
+    -k) shift; KEYSTOREFILE="$1";;
+    -p) shift; KEYSTOREPASSWD="$1";;
+    --) break;
+    esac 
+    shift
+done
+shift 
+
+if [ -z "$KEYSTOREFILE" ]; then
+    KEYSTOREFILE=$DEFAULTKEYSTORE
+fi 
+if [ ! -e "$KEYSTOREFILE" ]; then
+    KEYSTOREFILE=$DEFAULTKEYSTORE
+fi
+if [ -z "$KEYSTOREPASSWD" ]; then
+    KEYSTOREPASSWD=$DEFAULTKSPASSWD
+fi
+
+echo "[keystore]: ($KEYSTOREFILE)"
+echo "[passwd]: ($KEYSTOREPASSWD)"
+echo "[wsisettingslocation]: ($WSISETTINGSLOC)"
+echo "[hermesjmslocation]: ($HERMESJMSLOC)"
+
+echo "... Generating soapui-settings.xml in (`pwd`)"
+sed -e "s|@@SSLSETTINGSKEYSTORE@@|$KEYSTOREFILE|" -e "s|@@SSLSETTINGSKEYSTOREPASSWD@@|$KEYSTOREPASSWD|" -e "s|@@WSISETTINGSLOCATION@@|$WSISETTINGSLOC|" -e "s|@@HERMESJMSLOC@@|$HERMESJMSLOC|" $SOAPSETTINGSTPL > soapui-settings.xml
+
+echo "... Done."
+
+exit 0

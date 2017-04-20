@@ -1,0 +1,11 @@
+#!/bin/sh
+REPORTDIR=reports
+ROBOT_SYSLOG_LEVEL=TRACE ROBOT_SYSLOG_FILE=syslog.txt python -m robot.run -L TRACE -d $REPORTDIR -b debug.txt "$@"
+RC=$?
+
+if [ $RC -ne 0 ]; then
+  echo " XXX pybot runner returned failed status XXX"
+fi
+
+mv syslog.txt $REPORTDIR >/dev/null 2>&1
+exit $RC

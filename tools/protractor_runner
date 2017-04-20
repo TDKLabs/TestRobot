@@ -1,0 +1,59 @@
+#!/bin/bash
+
+echo " *** protractor_runner called with params: [$*] *** "
+
+TCNAMES=$@
+echo " +++ Args: ($@), # of args: ($#) +++ "
+
+SPECFILES=""
+
+for name in $TCNAMES; do
+    SPECFILES="$SPECFILES""'$name',"
+done
+
+
+cat <<- DOC > conf.js
+// conf.js
+exports.config = {
+  directConnect: true,
+  framework: 'jasmine',
+  seleniumAddress: 'http://localhost:4444/wd/hub',
+  specs: [$SPECFILES],
+  capabilities: {
+    browserName: 'firefox'
+  }
+}
+DOC
+
+
+echo ==========  contents of conf.js =============
+cat conf.js
+echo =============================================
+
+
+NODEJS_OUT=_node_output.txt
+
+
+echo " +++ Running: (protractor conf.js) +++ "
+
+if [ x"$HEADLESS" != x"" ]; then
+    xvfb-run protractor conf.js | tee $NODEJS_OUT
+else
+    protractor conf.js | tee $NODEJS_OUT
+fi
+
+ERRORSTATUS=${PIPESTATUS[0]}
+
+
+echo " @@@ protractor return code: [$ERRORSTATUS] @@@ "
+
+if [ ! -e "$NODEJS_OUT" ]; then
+    echo " XXX FATAL: ($NODEJS_OUT) not present - tee output missing. XXX "
+    exit 1
+fi
+
+
+echo " ### protractor_runner return code: [$ERRORSTATUS] #### "
+
+exit $ERRORSTATUS 
+

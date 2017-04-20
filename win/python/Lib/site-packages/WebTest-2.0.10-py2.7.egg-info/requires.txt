@@ -1,0 +1,13 @@
+six
+WebOb>=1.2
+waitress>=0.8.5
+beautifulsoup4
+
+[tests]
+nose
+coverage
+mock
+PasteDeploy
+WSGIProxy2
+pyquery
+unittest2

@@ -1,0 +1,75 @@
+#!/bin/sh
+
+usage() {
+    echo Usage: `basename $0` '[--env Environment to use]' 
+    exit 1
+}
+
+PARAM=`getopt -o he: --long "help,env:" -- "$@"`
+if [ $? != 0 ] ; then usage; fi
+
+eval set -- "$PARAM"
+
+export MQENV=
+
+while true;
+do
+    case "$1" in
+        -h|--help) usage ;;
+    	--env) MQENV="$2"; shift 2 ;;
+    	--) shift; break ;;
+    	*) echo "Internal error!" ; usage ;;
+    esac 
+done
+for arg do SCRIPT_NAME="$arg" ; done
+
+JRUNNER_OUT=_jrunner_output_.txt
+
+echo " *** [MQENV = $MQENV] "
+echo " *** [JAVA_HOME = $JAVA_HOME] [JDK_HOME = $JDK_HOME] *** "
+echo " *** [GROOVY_HOME = $GROOVY_HOME] *** "
+
+CLASSPATH=.:$TROBOT/libs/SoapUI-5.2.0/lib/ojdbc5.jar:$TROBOT/libs/java:$TROBOT/libs/groovy-2.2.2/lib/junit-4.11.jar
+
+for JAR in $(find jars/ -name *.jar); do 
+	CLASSPATH=$CLASSPATH:$JAR
+done
+
+echo " *** [CLASSPATH] : $CLASSPATH *** "
+
+echo " +++ Running: (groovy -cp $CLASSPATH $SCRIPT_NAME) +++ "
+groovy -cp $CLASSPATH $SCRIPT_NAME | tee $JRUNNER_OUT
+ERRORSTATUS=${PIPESTATUS[0]}
+MQENV=
+
+echo " @@@ groovy return code: [$ERRORSTATUS] @@@ "
+
+if [ ! -e "$JRUNNER_OUT" ]; then
+	echo " XXX FATAL: ($JRUNNER_OUT) not present - tee output missing. XXX"
+	exit 1
+fi
+
+# errors / failures both set error status to 1
+
+RE=".*Failures: *(\d+)"
+JRUNNERFAILURES=$(grep "Failures:" $JRUNNER_OUT | tail -1 | python -c "import re,sys;m=re.compile(\"$RE\").match(sys.stdin.read());print m.groups()[0] if m else 0")
+if [ $JRUNNERFAILURES -ne 0 ]; then
+	echo "Found failures: $JRUNNERFAILURES"
+	ERRORSTATUS=1
+fi
+RE=".*Errors: *(\d+)"
+JRUNNERERRORS=$(grep "Errors:" $JRUNNER_OUT | tail -1 | python -c "import re,sys;m=re.compile(\"$RE\").match(sys.stdin.read());print m.groups()[0] if m else 0")
+if [ $JRUNNERERRORS -ne 0 ]; then
+	echo "Found errors: $JRUNNERERRORS"
+	ERRORSTATUS=1
+fi
+RE=".*Error: *(.*)"
+JRUNNERERRORS=$(grep "Error:" $JRUNNER_OUT | tail -1 | python -c "import re,sys;m=re.compile(\"$RE\").match(sys.stdin.read());print m.groups()[0] if m else 0")
+if [ $JRUNNERERRORS -ne 0 ]; then
+	echo "Found error: $JRUNNERERRORS"
+	ERRORSTATUS=1
+fi
+
+echo " ### jrunner return code: [$ERRORSTATUS] ### "
+
+exit $ERRORSTATUS

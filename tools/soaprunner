@@ -1,0 +1,96 @@
+#!/bin/bash
+
+echo " *** soaprunner called with params: [$*] ***"
+file="$*"
+
+export SOAPUI_HOME="$TOOLCHAIN/libs/SoapUI-5.2.0"
+
+pushd $SOAPUI_HOME >/dev/null
+SOAPUI_CLASSPATH=
+for JAR in $(ls bin/soapui-5.2.0.jar lib/* bin/ext/jsch-0.1.50.jar); do
+    SOAPUI_CLASSPATH=$SOAPUI_CLASSPATH:$SOAPUI_HOME/$JAR
+done
+popd >/dev/null
+
+echo "  @@@ SOAPUI_CLASSPATH: [$SOAPUI_CLASSPATH] @@@"
+
+export SOAPUI_CLASSPATH
+
+JAVA_OPTS="-Xms128m -Xmx512m -Dsoapui.logroot=$SOAPUI_LOGSDIR/ -Dsoapui.properties=soapui.properties -Dgroovy.source.encoding=iso-8859-1 -Dsoapui.home=$SOAPUI_HOME/  -Dsoapui.ext.libraries=$SOAPUI_HOME/ext"
+export JAVA_OPTS
+JAVA=java
+SOAPUI_ERRORS_LOG=soapui-errors.log
+SOAPUI_ERROR=
+
+# soapui-settings.xml 
+if [ -z $SOAPUI_SETTINGS ] || [ ! -e $SOAPUI_SETTINGS ]; then 
+    soapsettings
+fi
+
+
+echo ================================
+echo =
+echo = SOAPUI_HOME = $SOAPUI_HOME
+echo =
+echo ================================
+
+echo "  @@@ Running SoapUITestCaseRunner with param [$file] @@@"
+echo "  $JAVA $JAVA_OPTS -cp $SOAPUI_CLASSPATH com.eviware.soapui.tools.SoapUITestCaseRunner -r -a -j -M -f $SOAPUI_LOGSDIR $DB_PROPERTIES -t soapui-settings.xml $file"
+$JAVA $JAVA_OPTS -cp $SOAPUI_CLASSPATH com.eviware.soapui.tools.SoapUITestCaseRunner -r -a -j -M -f $SOAPUI_LOGSDIR $DB_PROPERTIES -t soapui-settings.xml "$file"
+
+# check return code
+if [ $? -ne 0 ]; then
+    SOAPUI_ERROR=1
+    echo "  ERROR: [$file] SoapUITestCaseRunner returned error [1]"
+fi
+
+if [ $(wc -l $SOAPUI_LOGSDIR/$SOAPUI_ERRORS_LOG | awk '{print $1}') -ne     0 ]; then
+    SOAPUI_ERROR=1
+    echo "  ERROR: [$file] tripped SoapUITestCaseRunner - stack trace in     [$SOAPUI_ERRORS_LOG]"
+fi
+
+# handle multiple project files, error and exception handling ... 
+#IFS=, read -a XMLS <<< "$(cat AXML.sh | head -n 1 | cut -d'=' -f2)"
+#for xml in "${XMLS[@]}"; do
+#  #echo "xml: $xml"
+#  echo -n > __output.txt__ 
+#  python $TOOLCHAIN/tools/expand_soap_params.py "$xml" >> __output.txt__
+#
+#  while read line; do
+#    xml=$(echo $line | sed -e 's/"//g')
+#    file=$(echo $xml | sed -e "s/-. \+[^- ]*//g" -e "s/^ *//g" -e "s/ *$//g")
+#    params=$(echo $xml | sed -e 's|'"$file"'||g' -e "s| \+| |g" -e "s/^ *//g" -e "s/ *$//g")
+#    #echo "  [$params] : [\"$file\"]"
+#    echo "  @@@ Running SoapUITestCaseRunner with param [$file] @@@"     
+#    if [[ -n "$params" ]]; then
+#      echo "  $JAVA $JAVA_OPTS -cp $SOAPUI_CLASSPATH com.eviware.soapui.tools.SoapUITestCaseRunner -r -a -j -M -f $SOAPUI_LOGSDIR $DB_PROPERTIES -t soapui-settings.xml $params $file"
+#      $JAVA $JAVA_OPTS -cp $SOAPUI_CLASSPATH com.eviware.soapui.tools.SoapUITestCaseRunner -r -a -j -M -f $SOAPUI_LOGSDIR $DB_PROPERTIES -t soapui-settings.xml "$params" "$file"
+#    else
+#      echo "  $JAVA $JAVA_OPTS -cp $SOAPUI_CLASSPATH com.eviware.soapui.tools.SoapUITestCaseRunner -r -a -j -M -f $SOAPUI_LOGSDIR $DB_PROPERTIES -t soapui-settings.xml $file"
+#      $JAVA $JAVA_OPTS -cp $SOAPUI_CLASSPATH com.eviware.soapui.tools.SoapUITestCaseRunner -r -a -j -M -f $SOAPUI_LOGSDIR $DB_PROPERTIES -t soapui-settings.xml "$file"
+#    fi
+#
+#    # check return code 
+#    if [ $? -ne 0 ]; then
+#      SOAPUI_ERROR=1
+#      echo "  ERROR: [$file] SoapUITestCaseRunner returned error [1]"
+#    fi
+#	
+#    if [ $(wc -l $SOAPUI_LOGSDIR/$SOAPUI_ERRORS_LOG | awk '{print $1}') -ne 0 ]; then
+#      SOAPUI_ERROR=1
+#      echo "  ERROR: [$file] tripped SoapUITestCaseRunner - stack trace in [$SOAPUI_ERRORS_LOG]"	  
+#    fi
+#	
+#  done < __output.txt__
+#
+#  rm -f __output.txt __
+#  
+#  #mv $SOAPUI_DROPPINGS "$SOAPUI_LOGSDIR" >/dev/null 2>&1
+#done
+
+rm -rf soapui-settings.xml
+
+if [[ -n $SOAPUI_ERROR ]]; then
+  echo "  XXX ERROR: SoapUITestCaseRunner returned an error status. XXX"
+  exit 1
+fi

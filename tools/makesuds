@@ -1,0 +1,75 @@
+#!/bin/sh
+
+if [ -z "$SOAPUI_LOGSDIR" ]; then
+  SOAPUI_LOGSDIR=soapui_logs
+fi
+if [ -z "$SOAPUI_DROPPINGS" ]; then
+  SOAPUI_DROPPINGS="global-groovy.log soapui-errors.log soapui.log"
+fi
+
+export SOAPUI_LOGSDIR
+export SOAPUI_DROPPINGS
+ERRORSTATUS=
+
+echo " *** [I] Lathering *** "
+
+# generate soapui project xmls for automation runner
+echo " <=> lather $@ <=> "
+lather "$@"
+
+if [ $? -eq 1 ]; then
+    exit 1
+fi
+
+# pre-rinse
+rm -rf $SOAPUI_DROPPINGS >/dev/null 2>&1
+
+# run soaprunner .. the actual test
+ARG=$(echo "$@" | sed -n -e "s/.*\(TC.*\)\.xml/\1/p")
+ARG="$ARG.axml"
+echo " <=> soaprunner $ARG <=> "
+soaprunner "$ARG"
+ERRORSTATUS=$?
+
+rm -f AXML.sh
+
+if [ $ERRORSTATUS -ne 0 ]; then
+  echo "  !!! WARNING : soaprunner returned an error status. !!!"
+fi
+
+# create build.xml for ant
+cat <<- DOC > build.xml
+<project name="report" default="report" basedir=".">
+    <target name="report">
+	    <junitreport todir="${SOAPUI_LOGSDIR}">
+            <fileset dir="${SOAPUI_LOGSDIR}" includes="TEST*.xml"/>
+            <report format="frames" todir="${SOAPUI_LOGSDIR}">
+                <param name="TITLE" expression="SoapUI Test Results."/>
+            </report>
+        </junitreport>
+    </target>
+</project>
+DOC
+ant -q >/dev/null 2>&1 
+if [ $? -eq 1 ]; then 
+  echo " XXX Log generation failed! XXX"
+  exit 1
+fi
+
+echo -e " *** [II] Rinsing *** \n"  
+rm -f build.xml __output.txt__
+#mv $SOAPUI_DROPPINGS "$SOAPUI_LOGSDIR" >/dev/null 2>&1 
+#mv *.log* $SOAPUI_LOGSDIR 2>/dev/null
+
+mv *.axml $SOAPUI_LOGSDIR >/dev/null 2>&1
+
+export SOAPUI_LOGSDIR=
+export SOAPUI_DROPPINGS=
+
+if [ $ERRORSTATUS -eq 1 ]; then
+  if [ -z $SOAPUI_IGNORE_ERROR ]; then
+    exit 1
+  fi
+fi
+
+exit 0

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+echo " *** mrunner called with params: [$*] ***"
+file="$*"
+
+MRUNNER_OUT=_mrunner_output_.txt
+
+echo " *** [JAVA_HOME = $JAVA_HOME] [MVN_HOME = $MVN_HOME] *** "
+
+echo " +++ Running: (mvn test -DfailIfNoTests=False $file) +++ "
+mvn test -DfailIfNoTests=False $file | tee $MRUNNER_OUT
+ERRORSTATUS=${PIPESTATUS[0]}
+
+echo " @@@ mvn return code: [$ERRORSTATUS] @@@ "
+
+if [ ! -e $MRUNNER_OUT ]; then
+	echo " XXX FATAL: ($MRUNNER_OUT) not present - tee output missing. XXX"
+	exit 1
+fi
+
+# errors / failures both set error status to 1
+
+RE=".*Failures: *(\d+)"
+MRUNNERFAILURES=$(grep "Failures:" $MRUNNER_OUT | tail -1 | python -c "import re,sys;m=re.compile(\"$RE\").match(sys.stdin.read());print m.groups()[0] if m else 0")
+if [ $MRUNNERFAILURES -ne 0 ]; then
+	echo "Found failures: $MRUNNERFAILURES"
+	ERRORSTATUS=1
+fi
+
+echo " ### mrunner return code: [$ERRORSTATUS] ### "
+
+exit $ERRORSTATUS

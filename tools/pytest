@@ -1,0 +1,16 @@
+#!/bin/sh
+
+REPORTDIR=results
+
+echo " ... running the following user-specified test scripts: [ $@ ] ... "
+python -m pytest -s -v "$@"
+RC=$?
+
+if [ $RC -ne 0 ]; then
+  echo " XXX pytest runner returned failed status XXX"
+fi
+
+find . -name __pycache__ | xargs rm -rf > /dev/null 2>&1
+find . -name "*.pyc" | xargs rm -f > /dev/null 2>&1
+
+exit $RC

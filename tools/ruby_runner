@@ -1,0 +1,23 @@
+#!/bin/bash
+
+echo " *** ruby_runner called with params: [$*] *** "
+echo " +++ Args: ($@), # of args: ($#) +++ "
+
+RUBY_OUT=_ruby_output.txt
+
+ruby $@ | tee $RUBY_OUT
+
+ERRORSTATUS=${PIPESTATUS[0]}
+
+
+echo " @@@ ruby return code: [$ERRORSTATUS] @@@ "
+
+if [ ! -e "$RUBY_OUT" ]; then
+    echo " XXX FATAL: ($RUBY_OUT) not present - tee output missing XXX "
+    exit 1
+fi
+
+
+echo " ### ruby_runner return code: [$ERRORSTATUS] ### " 
+
+exit $ERRORSTATUS

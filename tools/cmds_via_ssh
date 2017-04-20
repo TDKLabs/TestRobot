@@ -1,0 +1,2 @@
+#!/bin/sh
+python $TOOLCHAIN/tools/cmds_via_ssh.py "$@"

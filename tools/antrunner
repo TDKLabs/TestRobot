@@ -1,0 +1,31 @@
+#!/bin/sh
+echo " *** antrunner called with params: [$*] ***"
+SCRIPT_NAME="$*"
+
+ARUNNER_OUT=_arunner_output_.txt
+
+echo " *** [JAVA_HOME = $JAVA_HOME] [ANT_HOME = $ANT_HOME] *** "
+
+echo " +++ Running: (ant $SCRIPT_NAME) +++ "
+ant $SCRIPT_NAME | tee $ARUNNER_OUT
+ERRORSTATUS=${PIPESTATUS[0]}
+
+echo " @@@ ant return code: [$ERRORSTATUS] @@@ "
+
+if [ ! -e "$ARUNNER_OUT" ]; then
+	echo " XXX FATAL: ($ARUNNER_OUT) not present - tee output missing. XXX"
+	exit 1
+fi
+
+# errors / failures both set error status to 1
+
+RE=".*Failures: *(\d+)"
+ARUNNERFAILURES=$(grep "Failures:" $ARUNNER_OUT | tail -1 | python -c "import re,sys;m=re.compile(\"$RE\").match(sys.stdin.read());print m.groups()[0] if m else 0")
+if [ $ARUNNERFAILURES -ne 0 ]; then
+	echo "Found failures: $ARUNNERFAILURES"
+	ERRORSTATUS=1
+fi
+
+echo " ### arunner return code: [$ERRORSTATUS] ### "
+
+exit $ERRORSTATUS

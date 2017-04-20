@@ -1,0 +1,28 @@
+#!/bin/bash
+
+export ROBOT_SYSLOG_LEVEL=INFO
+export ROBOT_SYSLOG_FILE=robot_syslog.txt
+export ROBOT_REPORTDIR=robot_reports
+export ROBOT_DEBUGFILE=robot_debug.txt
+export CONSOLE_LOG=console_log.txt
+
+trap "echo !!! Caught INT TERM !!!" INT TERM
+
+if [ x"$DEBUG" != x"" ]; then
+	python $TOOLCHAIN/tools/tdkrunner.py "$@"
+	RC=$?
+else
+	if [ x"$PROFILE" = x"" ]; then
+		python $TOOLCHAIN/tools/tdkrunner.py "$@" | tee $CONSOLE_LOG
+		#RC=${PIPESTATUS[0]}
+	else	
+		python -m cProfile -o profile.trace $TOOLCHAIN/tools/tdkrunner.py "$@" | tee $CONSOLE_LOG
+		RC=${PIPESTATUS[0]}
+	fi
+fi  
+ 
+
+# cleanup runner droppings
+rm -rf __pycache__ *.pyc >/dev/null 2>&1
+
+exit $RC
